@@ -34,16 +34,17 @@ install_nvenc_ffmpeg() {
     echo "removing any existing ffmpeg installation"
     apt remove ffmpeg -y
     mkdir -p tmp
+    cd tmp
     # install dependency
     apt update
     apt install build-essential yasm cmake libtool libc6 libc6-dev unzip wget -y
     apt install pkg-config libnuma-dev -y
     # install NVIDIA toolkit
     wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb -O tmp/cuda-keyring_1.1-1_all.deb
-    apt install tmp/cuda-keyring_1.1-1_all.deb -y
+    apt install .//cuda-keyring_1.1-1_all.deb -y
     apt update
     apt install cuda-toolkit -y 
-    
+    cd ..
     grep -q "export LD_LIBRARY_PATH=\"\?/usr/local/cuda/lib64:\${LD_LIBRARY_PATH}\"\|export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/usr/local/cuda/lib64" "$HOME/.bashrc" || \
     echo "export LD_LIBRARY_PATH=\"/usr/local/cuda/lib64:\${LD_LIBRARY_PATH}\"" >> "$HOME/.bashrc" && \
     echo "Added /usr/local/cuda/lib64 to LD_LIBRARY_PATH."
@@ -59,7 +60,7 @@ install_nvenc_ffmpeg() {
     git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git tmp/nv-codec-headers
     cd tmp/nv-codec-headers
     make install
-    cd ..
+    cd ../..
     git clone https://git.ffmpeg.org/ffmpeg.git tmp/ffmpeg
     cd tmp/ffmpeg
     ./configure --enable-nonfree --enable-cuda-nvcc --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64 --enable-nvenc --enable-cuvid --enable-nvdec
@@ -68,7 +69,7 @@ install_nvenc_ffmpeg() {
     ldconfig
     echo "ffmpeg installed to $(which ffmpeg)"
 
-    ffmpeg --version
+    ffmpeg
 
     echo "VIDEO_PROCESSOR = 'nvenc'" >> cms/local_settings.py
     exit 0

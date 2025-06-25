@@ -600,19 +600,20 @@ def get_base_ffmpeg_command(
     cmd = base_cmd[:]
 
     # preset settings
+    # test nvenc options
     if encoder == "libvpx-vp9":
         if pass_number == 1:
             speed = 4
         else:
             speed = VP9_SPEED
-    elif encoder in ["libx264"]:
+    elif encoder in ["libx264", "h264_nvenc"]:
         preset = X26x_PRESET
-    elif encoder in ["libx265"]:
+    elif encoder in ["libx265", "hevc_nvenc"]:
         preset = X265_PRESET
     if target_height >= 720:
         preset = X26x_PRESET_BIG_HEIGHT
 
-    if encoder == "libx264":
+    if encoder == "libx264" or encoder == "h264_nvenc":
         level = "4.2" if target_height <= 1080 else "5.2"
 
         x264_params = [
@@ -642,7 +643,7 @@ def get_base_ffmpeg_command(
         if enc_type == "twopass":
             cmd.extend(["-passlogfile", pass_file, "-pass", pass_number])
 
-    elif encoder == "libx265":
+    elif encoder == "libx265" or encoder == "hevc_nvenc":
         x265_params = [
             "vbv-maxrate=" + str(int(int(target_rate) * MAX_RATE_MULTIPLIER)),
             "vbv-bufsize=" + str(int(int(target_rate) * BUF_SIZE_MULTIPLIER)),
