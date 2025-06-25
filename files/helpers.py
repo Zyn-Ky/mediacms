@@ -576,7 +576,7 @@ def get_base_ffmpeg_command(
         if settings.VIDEO_PROCESSOR == "nvenc":
             base_cmd.extend(["-qp", str(VIDEO_CRFS[codec])])
         else:
-            base_cmd.extend(["-crf", str(VIDEO_CRFS[codec])])
+            base_cmd.extend(["-qp", str(VIDEO_CRFS[codec])])
         if encoder == "libvpx-vp9":
             base_cmd.extend(["-b:v", str(target_rate) + "k"])
 
