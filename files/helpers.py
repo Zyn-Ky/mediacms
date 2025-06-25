@@ -40,6 +40,11 @@ X26x_PRESET = "medium"  # "medium"
 X265_PRESET = "medium"
 X26x_PRESET_BIG_HEIGHT = "faster"
 
+# nvenc x264 and x265 presets
+X26x_NVENC_PRESET = "p3"  # medium
+X265_NVENC_PRESET = "p3"
+X26x_NVENC_PRESET_BIG_HEIGHT = "p4"  # faster
+
 # VP9_SPEED = 1  # between 0 and 4, lower is slower
 VP9_SPEED = 2
 
@@ -569,14 +574,14 @@ def get_base_ffmpeg_command(
         "yuv420p",
     ]
 
-    if enc_type == "twopass":
+    if enc_type == "twopass" or settings.VIDEO_PROCESSOR != "nvenc":
         base_cmd.extend(["-b:v", str(target_rate) + "k"])
     elif enc_type == "crf":
         # due to nvenc limitations, cannot use CRF, using qp instead
         if settings.VIDEO_PROCESSOR == "nvenc":
             base_cmd.extend(["-qp", str(VIDEO_CRFS[codec])])
         else:
-            base_cmd.extend(["-qp", str(VIDEO_CRFS[codec])])
+            base_cmd.extend(["-crf", str(VIDEO_CRFS[codec])])
         if encoder == "libvpx-vp9":
             base_cmd.extend(["-b:v", str(target_rate) + "k"])
 
@@ -606,14 +611,22 @@ def get_base_ffmpeg_command(
             speed = 4
         else:
             speed = VP9_SPEED
-    elif encoder in ["libx264", "h264_nvenc"]:
+    elif encoder in ["libx264"]:
         preset = X26x_PRESET
-    elif encoder in ["libx265", "hevc_nvenc"]:
+    elif encoder in ["libx265"]:
         preset = X265_PRESET
-    if target_height >= 720:
-        preset = X26x_PRESET_BIG_HEIGHT
+    elif encoder in ["h264_nvenc"]:
+        preset = X26x_NVENC_PRESET
+    # elif encoder in ["hevc_nvenc"]:
+    #     preset = X265_NVENC_PRESET
 
-    if encoder == "libx264" or encoder == "h264_nvenc":
+    if target_height >= 720:
+        if settings.VIDEO_PROCESSOR == "nvenc":
+            preset = X26x_NVENC_PRESET_BIG_HEIGHT
+        else:
+            preset = X26x_PRESET_BIG_HEIGHT
+
+    if encoder == "libx264":
         level = "4.2" if target_height <= 1080 else "5.2"
 
         x264_params = [
@@ -642,8 +655,29 @@ def get_base_ffmpeg_command(
 
         if enc_type == "twopass":
             cmd.extend(["-passlogfile", pass_file, "-pass", pass_number])
-
-    elif encoder == "libx265" or encoder == "hevc_nvenc":
+    elif encoder == "h264_nvenc":
+        # No twopass for nvenc (blame nvidia)
+        cmd.extend(
+            [
+                "-maxrate",
+                str(int(int(target_rate) * MAX_RATE_MULTIPLIER)) + "k",
+                "-bufsize",
+                str(int(int(target_rate) * BUF_SIZE_MULTIPLIER)) + "k",
+                "-force_key_frames",
+                "expr:gte(t,n_forced*" + str(KEYFRAME_DISTANCE) + ")",
+                "-keyint_min",
+                str(keyframe_distance),
+                "-g",
+                str(keyframe_distance * 2),
+                "-preset",
+                preset,
+                "-profile:v",
+                VIDEO_PROFILES[codec],
+                "-level",
+                level,
+            ]
+        )
+    elif encoder == "libx265":
         x265_params = [
             "vbv-maxrate=" + str(int(int(target_rate) * MAX_RATE_MULTIPLIER)),
             "vbv-bufsize=" + str(int(int(target_rate) * BUF_SIZE_MULTIPLIER)),
@@ -719,10 +753,10 @@ def produce_ffmpeg_commands(media_file, media_info, resolution, codec, output_fi
             encoder = "libx264"
         # ext = "mp4"
     elif codec in ["h265", "hevc"]:
-        if settings.VIDEO_PROCESSOR == "nvenc":
-            encoder = "hevc_nvenc"
-        else:
-            encoder = "libx265"
+        # if settings.VIDEO_PROCESSOR == "nvenc":
+        #     encoder = "hevc_nvenc"
+        # else:
+        encoder = "libx265"
         # ext = "mp4"
     elif codec == "vp9":
         encoder = "libvpx-vp9"
