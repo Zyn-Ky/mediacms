@@ -656,6 +656,8 @@ def get_base_ffmpeg_command(
         if enc_type == "twopass":
             cmd.extend(["-passlogfile", pass_file, "-pass", pass_number])
     elif encoder == "h264_nvenc":
+        level = "4.2" if target_height <= 1080 else "5.2"
+
         # No twopass for nvenc (blame nvidia)
         cmd.extend(
             [
