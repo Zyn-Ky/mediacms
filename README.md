@@ -13,8 +13,14 @@ It is built mostly using the modern stack Django + React and includes a REST API
 A demo is available at https://demo.mediacms.io
 
 This version is modified for my use case. Which is:
-- Hardware acceleration with NVENC (rn only implemented on single server)
+- Hardware accelerated H264 (Working), H265 (WIP) NVENC on single-server installation (debian-based) (Set VIDEO_PROCESSOR to nvenc)
+  <p align="center">
+    <img src="https://raw.githubusercontent.com/Zyn-Ky/mediacms/main/docs/images/mediacms-admin-ffmpeg.png" width="340">
+    <img src="https://raw.githubusercontent.com/Zyn-Ky/mediacms/main/docs/images/nvidia-smi-ffmpeg.png" width="340">
+    <img src="https://raw.githubusercontent.com/Zyn-Ky/mediacms/main/docs/images/htop-ffmpeg.png" width="340">
+  </p>
 
+### MAKE SURE TO USE THE LATEST NVIDIA DRIVER 575
 ## Screenshots
 
 <p align="center">
