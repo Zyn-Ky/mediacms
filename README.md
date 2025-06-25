@@ -12,6 +12,8 @@ It is built mostly using the modern stack Django + React and includes a REST API
 
 A demo is available at https://demo.mediacms.io
 
+This version is modified for my use case. Which is:
+- Hardware acceleration with NVENC (rn only implemented on single server)
 
 ## Screenshots
 

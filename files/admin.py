@@ -211,7 +211,7 @@ class EncodingAdmin(admin.ModelAdmin):
     def get_title(self, obj):
         return str(obj)
 
-    get_title.short_description = "Encoding"
+    get_title.short_description = "Encoded File Name"
 
     def has_file(self, obj):
         return obj.media_encoding_url is not None

@@ -572,7 +572,11 @@ def get_base_ffmpeg_command(
     if enc_type == "twopass":
         base_cmd.extend(["-b:v", str(target_rate) + "k"])
     elif enc_type == "crf":
-        base_cmd.extend(["-crf", str(VIDEO_CRFS[codec])])
+        # due to nvenc limitations, cannot use CRF, using qp instead
+        if settings.VIDEO_PROCESSOR == "nvenc":
+            base_cmd.extend(["-qp", str(VIDEO_CRFS[codec])])
+        else:
+            base_cmd.extend(["-crf", str(VIDEO_CRFS[codec])])
         if encoder == "libvpx-vp9":
             base_cmd.extend(["-b:v", str(target_rate) + "k"])
 
@@ -708,10 +712,16 @@ def produce_ffmpeg_commands(media_file, media_info, resolution, codec, output_fi
         media_info = {}
 
     if codec == "h264":
-        encoder = "libx264"
+        if settings.VIDEO_PROCESSOR == "nvenc":
+            encoder = "h264_nvenc"
+        else:
+            encoder = "libx264"
         # ext = "mp4"
     elif codec in ["h265", "hevc"]:
-        encoder = "libx265"
+        if settings.VIDEO_PROCESSOR == "nvenc":
+            encoder = "hevc_nvenc"
+        else:
+            encoder = "libx265"
         # ext = "mp4"
     elif codec == "vp9":
         encoder = "libvpx-vp9"

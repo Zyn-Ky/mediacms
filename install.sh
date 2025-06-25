@@ -23,14 +23,81 @@ done
 
 apt-get update && apt-get -y upgrade && apt-get install pkg-config python3-venv python3-dev virtualenv redis-server postgresql nginx git gcc vim unzip imagemagick procps libxml2-dev libxmlsec1-dev libxmlsec1-openssl python3-certbot-nginx certbot wget xz-utils -y
 
-# install ffmpeg
-echo "Downloading and installing ffmpeg"
-wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-mkdir -p tmp
-tar -xf ffmpeg-release-amd64-static.tar.xz --strip-components 1 -C tmp
-cp -v tmp/{ffmpeg,ffprobe,qt-faststart} /usr/local/bin
-rm -rf tmp ffmpeg-release-amd64-static.tar.xz
-echo "ffmpeg installed to /usr/local/bin"
+install_nvenc_ffmpeg() {
+    echo "ffmpeg with NVENC hardware acceleration will be installed"
+    #check if nvidia drivers are installed
+    if ! command -v nvidia-smi &> /dev/null; then
+        echo "NVIDIA drivers are not installed. Please install them first."
+        exit 1
+    fi
+
+    echo "removing any existing ffmpeg installation"
+    apt remove ffmpeg -y
+    mkdir -p tmp
+    # install dependency
+    apt update
+    apt install build-essential yasm cmake libtool libc6 libc6-dev unzip wget -y
+    apt install pkg-config libnuma-dev -y
+    # install NVIDIA toolkit
+    wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb -O tmp/cuda-keyring_1.1-1_all.deb
+    apt install tmp/cuda-keyring_1.1-1_all.deb -y
+    apt update
+    apt install cuda-toolkit -y 
+    
+    grep -q "export LD_LIBRARY_PATH=\"\?/usr/local/cuda/lib64:\${LD_LIBRARY_PATH}\"\|export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/usr/local/cuda/lib64" "$HOME/.bashrc" || \
+    echo "export LD_LIBRARY_PATH=\"/usr/local/cuda/lib64:\${LD_LIBRARY_PATH}\"" >> "$HOME/.bashrc" && \
+    echo "Added /usr/local/cuda/lib64 to LD_LIBRARY_PATH."
+    grep -q "export PATH=\"\?\$PATH:/usr/local/cuda/bin\"\|export PATH=\"\?/usr/local/cuda/bin:\${PATH}\"" "$HOME/.bashrc" || \
+    echo "export PATH=\"\$PATH:/usr/local/cuda/bin\"" >> "$HOME/.bashrc" && \
+    echo "Appended /usr/local/cuda/bin to PATH."
+
+    source "$HOME/.bashrc"
+
+    nvcc --version || { echo "CUDA toolkit installation failed. Please check your system compatibility."; exit 1; }
+
+    # compile and add NVENC headers to ffmpeg
+    git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git tmp/nv-codec-headers
+    cd tmp/nv-codec-headers
+    make install
+    cd ..
+    git clone https://git.ffmpeg.org/ffmpeg.git tmp/ffmpeg
+    cd tmp/ffmpeg
+    ./configure --enable-nonfree --enable-cuda-nvcc --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64 --enable-nvenc --enable-cuvid --enable-nvdec
+    make -j$(nproc)
+    make install
+    ldconfig
+    echo "ffmpeg installed to $(which ffmpeg)"
+
+    ffmpeg --version
+
+    echo "VIDEO_PROCESSOR = 'nvenc'" >> cms/local_settings.py
+    exit 0
+}
+install_ffmpeg() {
+    echo "ffmpeg without hardware acceleration will be installed"
+    # install ffmpeg without hardware acceleration
+    echo "Downloading and installing ffmpeg"
+    wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+    mkdir -p tmp
+    tar -xf ffmpeg-release-amd64-static.tar.xz --strip-components 1 -C tmp
+    cp -v tmp/{ffmpeg,ffprobe,qt-faststart} /usr/local/bin
+    rm -rf tmp ffmpeg-release-amd64-static.tar.xz
+    echo "ffmpeg installed to $(which ffmpeg)"
+    ffmpeg --version
+
+    echo "VIDEO_PROCESSOR = 'cpu'" >> cms/local_settings.py
+}
+
+# prompt use hardware acceleration for ffmpeg
+while true; do
+    read -p "Do you want to install ffmpeg with NVENC hardware acceleration? (y/n) " yn
+    case $yn in
+        [Yy]* ) echo "Installing ffmpeg with NVENC hardware acceleration"; install_nvenc_ffmpeg; break;;
+        [Nn]* ) echo "Installing ffmpeg without hardware acceleration"; install_ffmpeg; break;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
 
 read -p "Enter portal URL, or press enter for localhost : " FRONTEND_HOST
 read -p "Enter portal name, or press enter for 'MediaCMS : " PORTAL_NAME
